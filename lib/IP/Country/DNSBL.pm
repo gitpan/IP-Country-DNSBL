@@ -7,21 +7,17 @@ use Net::DNS;
 use Carp;
 
 use vars qw ( $VERSION );
-$VERSION = '1.01';
+$VERSION = '1.02';
 
-my $server = 'country.netop.org';
 my $resolver   = Net::DNS::Resolver->new;
 my $ip_match = qr/^(\d|[01]?\d\d|2[0-4]\d|25[0-5])\.(\d|[01]?\d\d|2[0-4]\d|25[0-5])\.(\d|[01]?\d\d|2[0-4]\d|25[0-5])\.(\d|[01]?\d\d|2[0-4]\d|25[0-5])$/o;
 
-my $singleton = undef;
 sub new ()
 {
-    my $caller = shift;
-    unless (defined $singleton){
-        my $class = ref($caller) || $caller;
-	$singleton = bless {}, $class;
-    }
-    return $singleton;
+    my ($caller,$server) = @_;
+    $server = defined($server) ? $server : 'country.netop.org';
+    my $class = ref($caller) || $caller;
+    return bless \$server, $class;
 }
 
 sub db_time
@@ -31,7 +27,8 @@ sub db_time
 
 sub inet_atocc
 {
-    my $inet_a = $_[1] || $_[0];
+    my ($self,$inet_a) = @_;
+    my $server = $$self;
     my $dnsbl_host;
     if ($inet_a =~ $ip_match){
 	$dnsbl_host = "$4.$3.$2.$1.$server";
@@ -54,9 +51,9 @@ sub inet_atocc
 
 sub inet_ntocc
 {
-    my $inet_n = $_[1] || $_[0];
+    my $inet_n = $_[1];
     my $inet_a = inet_ntoa($inet_n) || return undef;
-    return inet_atocc($inet_a);
+    return $_[0]->inet_atocc($inet_a);
 }
 
 1;
@@ -79,14 +76,18 @@ Looking up the domain name associated with that address can provide some help,
 but many IP address are not reverse mapped to any useful domain, and the
 most common domain (.com) offers no help when looking for country.
 
-This module queries a netop.org server to find the correct country code.
+This module queries a DNSBL server to find the correct country code.
 
 =head1 CONSTRUCTOR
 
-The constructor takes no arguments.
+The constructor zero or one arguments.
 
   use IP::Country::DNSBL;
   my $reg = IP::Country::DNSBL->new();
+
+The optional argument is a DNSBL domain name (e.g. country.example.net) 
+which will be appended to any country code lookup. Without this argument,
+the module defaults to querying country.netop.org.
 
 =head1 OBJECT METHODS
 
